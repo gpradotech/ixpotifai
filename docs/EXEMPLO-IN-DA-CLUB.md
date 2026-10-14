@@ -2,7 +2,7 @@
 
 Data: 14/10/2026. Estado atual: arquivo FLAC obtido e validado no Windows. A investigação documental abaixo é anterior à implementação; a identidade do master e a qualidade máxima global continuam não comprovadas.
 
-## Prova executada no Skeeter
+## Prova executada no ixpotifai
 
 - Fonte efetiva: `tracks.monochrome.st`, sem YouTube na obtenção do áudio.
 - ISRC correlacionado: `USIR10300033`; versão explícita, duração e artista compatíveis.

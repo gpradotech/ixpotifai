@@ -3,7 +3,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {Queue} from '../lib/queue.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const run=path.join(root,'.skeeter',`verification-${Date.now()}`);
+const run=path.join(root,'.ixpotifai',`verification-${Date.now()}`);
 const queue=await new Queue(run).init();
 try {
   await queue.add(process.argv[2] || 'https://open.spotify.com/track/7iL6o9tox1zgHpKUfh9vuC');

@@ -1,0 +1,40 @@
+export function friendlyError(error) {
+  const message=String(typeof error==='string'?error:error?.message || '');
+  const code=error?.code || error?.cause?.code;
+  const named=error?.name;
+  if(code==='EEXIST' || /EEXIST|file already exists/i.test(message))return 'Ops! Essa música já existe em sua pasta.';
+  if(code==='ENOSPC' || /no space left/i.test(message))return 'Seu computador está sem espaço para salvar a música. Libere espaço e tente novamente.';
+  if(['EACCES','EPERM'].includes(code) || /EACCES|EPERM|permission denied/i.test(message))return 'Não conseguimos salvar nessa pasta. Verifique as permissões e tente novamente.';
+  if(named==='AbortError' || /operação interrompida|operação foi interrompida/i.test(message))return 'A operação foi interrompida.';
+  if(named==='TimeoutError' || /timeout|demorou demais|timed out/i.test(message))return 'Está demorando um pouco para encontrar essa música. Tente novamente.';
+  if(/HTTP 429/i.test(message))return 'A fonte está recebendo muitos pedidos. Aguarde um pouco e tente novamente.';
+  if(/HTTP (401|403|404)/i.test(message))return 'Essa música não está disponível na fonte agora. Tente novamente mais tarde.';
+  if(/HTTP \d+|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|CERT|TLS|SSL/i.test(`${code || ''} ${message}`))return 'Não conseguimos acessar a fonte de música agora. Tente novamente mais tarde.';
+  if(/ENOSPC/i.test(message))return 'Seu computador está sem espaço para salvar a música. Libere espaço e tente novamente.';
+  if(code==='ENOENT' || /ENOENT|arquivo não encontrado/i.test(message))return 'Ops! Não encontramos esse arquivo. Tente baixar a música novamente.';
+  if(/FFmpeg/i.test(message))return 'Não conseguimos preparar o áudio neste computador. Reinicie o aplicativo e tente novamente.';
+  if(/sessão inválida/i.test(message))return 'Sua sessão foi atualizada. Recarregue a página e tente novamente.';
+  if(/origem não autorizada/i.test(message))return 'Abra o aplicativo pelo endereço correto e tente novamente.';
+  if(/até 5 links por vez/i.test(message))return 'Você pode enviar até 5 links por vez. Adicione os próximos em outro envio.';
+  if(/Aguarde os downloads.*pasta|Escolha uma pasta válida|seleção de pasta|seletor de pasta|Estamos preparando suas músicas/i.test(message))return message;
+  if(/Cole um link|link precisa ser do Spotify|link.*inválido|HTTPS público|endereços locais|precisa usar HTTPS/i.test(message))return 'Ops! Cole um link válido de uma música, álbum ou playlist do Spotify.';
+  if(/Cole pelo menos/i.test(message))return 'Adicione pelo menos um link do Spotify para começar.';
+  if(/playlist.*total|total.*playlist|apenas parte da lista/i.test(message))return 'Não conseguimos ler essa lista inteira. Tente adicionar os links das músicas separadamente.';
+  if(/confirmar todas as faixas/i.test(message))return 'Não conseguimos ler essa playlist inteira. Tente novamente ou adicione os links das músicas separadamente.';
+  if(/não disponibiliza faixas/i.test(message))return 'Não conseguimos acessar as músicas dessa lista. Confira se ela é pública.';
+  if(/gravação.*não está disponível/i.test(message))return 'Essa gravação ainda não está disponível na fonte de áudio atual.';
+  if(/ISRC|identificador da gravação|outra versão|outro artista|outro.*título|duração.*diverge|versão explícita|compatível/i.test(message))return 'Não encontramos uma versão compatível dessa música. Tente outro link ou tente novamente mais tarde.';
+  if(/resolução inferior|maior resolução|maior qualidade|não.*sem perdas|não.*FLAC|não contém FLAC|diferentes.*resoluções|resoluções.*diferentes/i.test(message))return 'Não encontramos um arquivo com a qualidade exigida para essa música. Tente novamente mais tarde.';
+  if(/truncado|checksum|STREAMINFO|decodificação|danificado|integridade|arquivo.*duração|parâmetros FLAC/i.test(message))return 'O áudio recebido parece estar incompleto ou danificado. Tente novamente.';
+  if(/criptografia|protegido|manifesto|manifest|prévia/i.test(message))return 'Esta versão não pode ser obtida pela fonte atual. Tente outro link.';
+  if(/metadados|correlacionar|reconhecer|estrutura.*mudou/i.test(message))return 'Não conseguimos reconhecer essa música agora. Confira o link e tente novamente.';
+  if(/nenhuma fonte|nenhuma correspondência|fonte.*não.*disponível/i.test(message))return 'Não encontramos essa música na fonte disponível. Tente novamente mais tarde.';
+  if(/fila salva não pôde ser lida/i.test(message))return 'Não conseguimos recuperar sua lista. Reinicie o aplicativo e tente novamente.';
+  if(/já está sendo limpa|aguarde a limpeza/i.test(message))return 'Estamos limpando a lista. Aguarde um instante.';
+  if(/já foi concluído|já está em andamento/i.test(message))return 'Essa música já foi processada ou está em andamento.';
+  if(/foi alterado desde/i.test(message))return 'O arquivo salvo mudou desde o último download. Confira sua pasta antes de tentar novamente.';
+  if(/faixa não encontrada/i.test(message))return 'Essa música já saiu da lista. Atualize a página para continuar.';
+  // Preserve messages already translated, without allowing raw paths or URLs through.
+  if(!/https?:\/\/|[A-Za-z]:[\\/]|\b[A-Z_]{3,}:|\/Users\/|\/home\//.test(message) && /^(Ops!|Não conseguimos|Não encontramos|Essa música|Seu computador|Você pode|Adicione pelo menos|Está demorando|A fonte está|Estamos limpando|Sua sessão|Abra o aplicativo|O áudio recebido|Esta versão|O arquivo salvo|Confira|Tente|A operação)/.test(message))return message.slice(0,400);
+  return 'Ops! Não conseguimos concluir agora. Tente novamente em instantes.';
+}

@@ -107,3 +107,7 @@ Para cada caso, verificar que o produto não declara atendimento aos requisitos 
 | Evidência aceitável para confirmar o master em cada fonte | Avaliação conjunta após examinar exemplos | Evitar uma certificação baseada apenas em metadados. |
 
 Próxima ação técnica: usar o caso In Da Club para detalhar a avaliação de SpotiFLAC e Votify e preparar um piloto do fluxo contínuo para FLAC/WAV, com critérios por faixa e nenhuma dependência de lista fechada, equipamento ou software do DJ. As informações disponíveis bastam para continuar essa avaliação; eventuais dados de conta só serão solicitados se forem necessários a uma etapa concreta. A intenção de obter qualquer música está registrada, mas sua realização operacional não foi comprovada.
+
+## Ajustes atuais de interface
+
+O usuário definiu até cinco campos de link por envio e dez músicas por página da lista. Esses limites organizam a interface; o total da biblioteca e os downloads cotidianos continuam sem cota. O logotipo usa o símbolo fornecido do Spotify; mensagens de erro exibidas ao usuário não mostram códigos ou caminhos técnicos.
