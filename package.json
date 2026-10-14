@@ -1,0 +1,13 @@
+{
+  "name": "skeeter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Aplicativo local de obtenção e validação de áudio sem perdas",
+  "scripts": {
+    "start": "node --use-system-ca server.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "engines": { "node": ">=22.19.0" },
+  "dependencies": { "ffmpeg-static": "5.3.0" }
+}
