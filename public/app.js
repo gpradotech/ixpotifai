@@ -1,5 +1,5 @@
 import {friendlyError} from './errors.js';
-import {MAX_LINKS,listPage,spotifyLinkKey,formatDuration,STATUS_LABELS,SORT_LABELS,nextListSort,sortDownloads} from './list.js';
+import {MAX_LINKS,PAGE_SIZE,listPage,spotifyLinkKey,formatDuration,STATUS_LABELS,SORT_LABELS,nextListSort,sortDownloads,downloadControl,retryFeedback} from './list.js';
 
 const $=id=>document.getElementById(id);
 const session=document.querySelector('meta[name="ixpotifai-session"]').content;
@@ -8,25 +8,48 @@ let showClearNotice=false;
 let currentPage=1;
 let listSort=null;
 let composerSubmitting=false;
+let queueActionPending=false,restartWarning=false;
 const previewRequests=new WeakMap();
 const uniqueValues=new WeakMap(),startingBatches=new Set();
-const dismissedErrors=new Map();
 const player=$('track-player');
 let playingId=null;
 let choosingFolder=false;
 let folderState=null,folderBusy=false;
 const labels=STATUS_LABELS;
 async function api(route,data,signal){const response=await fetch(`/api/${route}`,data?{method:'POST',signal,headers:{'Content-Type':'application/json','X-ixpotifai-Token':session},body:JSON.stringify(data)}:{});const body=await response.json();if(!response.ok)throw new Error(friendlyError(body.error));return body;}
-function showMessage(container,text,bad=false,onClose){
+function showMessage(container,text,bad=false){
   container.classList.add('dismissible-message');container.classList.toggle('bad',bad);
   if(!text){container.hidden=true;container.replaceChildren();delete container.dataset.dismissed;return;}
   if(container.dataset.dismissed===text){container.hidden=true;return;}
   delete container.dataset.dismissed;const content=document.createElement('span');content.className='message-text';content.textContent=text;
   const close=document.createElement('button');close.type='button';close.className='message-close';close.setAttribute('aria-label','Fechar mensagem');close.append(phosphorIcon('x'));
-  close.onclick=()=>{container.hidden=true;container.dataset.dismissed=text;onClose?.();};container.replaceChildren(content,close);container.hidden=false;
+  close.onclick=()=>{container.hidden=true;container.dataset.dismissed=text;};container.replaceChildren(content,close);container.hidden=false;
 }
 function message(text,bad=false){showMessage($('message'),text,bad);}
-async function action(action,id){try{state=await api('action',{action,id});if(action==='clear'){showClearNotice=state.canUndoClear;currentPage=1;}if(action==='undo-clear')showClearNotice=false;render();await startPreparedDownloads();}catch(error){message(friendlyError(error),true);}}
+function queueMessage(text,bad=false){showMessage($('queue-message'),text,bad);}
+async function action(action,id){
+  if(queueActionPending)return;
+  if(action==='retry-failed' && !state.capabilities?.includes('retry-feedback-v1')) {
+    queueMessage('O aplicativo foi atualizado, mas o servidor aberto ainda é de uma versão anterior. Feche o terminal do ixpotifai, abra o aplicativo novamente e atualize esta página. Sua lista será preservada.',true);return;
+  }
+  queueActionPending=true;render();
+  if(['retry','retry-failed'].includes(action))queueMessage('Solicitando nova tentativa…');
+  try {
+    state=await api('action',{action,id});
+    if(action==='clear'){showClearNotice=state.canUndoClear;currentPage=1;queueMessage('');}
+    if(action==='undo-clear')showClearNotice=false;
+    if(['retry','retry-failed'].includes(action)) {
+      const ids=state.actionResult?.ids || [id],count=state.actionResult?.count ?? 1;
+      const first=sortDownloads(state.items,listSort).findIndex(item=>ids.includes(item.id));
+      if(first>=0)currentPage=Math.floor(first/PAGE_SIZE)+1;
+      queueMessage(count?`Nova tentativa solicitada para ${count} ${count===1?'música':'músicas'}. ${state.paused?'Clique em Retomar downloads para iniciar.':'Acompanhe o status na lista; se a fonte limitar os pedidos, a espera será exibida na faixa.'}`:'Não há faixas com erro para tentar novamente.');
+    }
+    if(action==='pause')queueMessage('Downloads pausados.');
+    if(action==='resume')queueMessage('Downloads retomados.');
+    render();await startPreparedDownloads();
+  }catch(error){queueMessage(friendlyError(error),true);}
+  finally{queueActionPending=false;render();}
+}
 function badge(parent,text,style){const span=document.createElement('span');span.textContent=text;if(style)span.className=style;parent.append(span);}
 function phosphorIcon(name){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','download-icon');svg.setAttribute('viewBox','0 0 256 256');svg.setAttribute('aria-hidden','true');const use=document.createElementNS('http://www.w3.org/2000/svg','use');use.setAttribute('href',`#ph-${name}`);svg.append(use);return svg;}
 function downloadIcon(){return phosphorIcon('download-simple');}
@@ -103,18 +126,22 @@ function renderSortControls(){
 $('download-columns').onclick=event=>{
   const button=event.target.closest('[data-sort]');if(!button || button.disabled)return;
   listSort=nextListSort(listSort,button.dataset.sort);currentPage=1;
-  $('sort-announcement').textContent=listSort?`Lista ordenada por ${SORT_LABELS[listSort.key]}, ${['sequence','duration'].includes(listSort.key)?(listSort.direction==='asc'?'do menor para o maior':'do maior para o menor'):(listSort.direction==='asc'?'de A a Z':'de Z a A')}.`:'Ordenação desativada. Exibindo as músicas mais recentes primeiro.';
+  $('sort-announcement').textContent=listSort?`Lista ordenada por ${SORT_LABELS[listSort.key]}, ${['sequence','duration'].includes(listSort.key)?(listSort.direction==='asc'?'do menor para o maior':'do maior para o menor'):(listSort.direction==='asc'?'de A a Z':'de Z a A')}.`:'Ordenação desativada. Exibindo as músicas na ordem de adição.';
   render();
 };
 function render(){
   updateDownloadButton();
   if(playingId && !state.items.some(item=>item.id===playingId && item.status==='completed' && item.file))stopPlayback();
-  for(const item of state.items)if(!item.error)dismissedErrors.delete(item.id);
-  $('queued-count').textContent=state.items.filter(i=>['prepared','queued','reading','matching','downloading','validating'].includes(i.status)).length;
+  $('queued-count').textContent=state.items.filter(i=>['prepared','queued','waiting','reading','matching','downloading','validating'].includes(i.status)).length;
   $('completed-count').textContent=state.items.filter(i=>i.status==='completed').length;
   $('failed-count').textContent=state.items.filter(i=>i.status==='failed').length;
-  $('pause-button').textContent=`${state.paused?'Retomar':'Pausar'} ${state.items.length===1?'download':'downloads'}`;
-  $('pause-button').disabled=!state.items.some(item=>['queued','reading','matching','downloading','validating'].includes(item.status));
+  const control=downloadControl(state);
+  $('pause-button').textContent=queueActionPending?'Solicitando…':control.label;
+  $('pause-button').disabled=queueActionPending || control.disabled;
+  if(!state.capabilities?.includes('retry-feedback-v1') && state.items.some(item=>item.status==='failed')) {
+    restartWarning=true;
+    queueMessage('O aplicativo foi atualizado, mas o servidor aberto ainda é de uma versão anterior. Feche o terminal do ixpotifai, abra o aplicativo novamente e atualize esta página. Sua lista será preservada.',true);
+  }else if(restartWarning){restartWarning=false;queueMessage('Aplicativo atualizado. As novas tentativas estão disponíveis.');}
   $('clear-button').disabled=state.items.length===0 || state.preparing;
   if(state.items.length)showClearNotice=false;
   $('clear-notice').hidden=!showClearNotice || !state.canUndoClear;
@@ -130,11 +157,11 @@ function render(){
   $('page-summary').textContent=`${page.start}–${page.end} de ${page.total} músicas`;
   $('page-number').textContent=`${page.page} de ${page.pages}`;
   $('previous-page').disabled=page.page===1;$('next-page').disabled=page.page===page.pages;
-  const next=JSON.stringify({items,page:page.page,total:page.total,paused:state.paused,sort:listSort});if(next===signature)return;signature=next;
+  const next=JSON.stringify({items,page:page.page,total:page.total,paused:state.paused,sort:listSort,waitingSecond:items.some(item=>item.status==='waiting')?Math.floor(Date.now()/1000):null});if(next===signature)return;signature=next;
   const container=$('queue');container.replaceChildren();
   if(!items.length){const empty=document.createElement('div');empty.className='empty';const symbol=document.createElement('div');symbol.className='empty-symbol';symbol.append(downloadIcon());const title=document.createElement('h3');title.textContent='Sua lista de downloads está vazia.';const text=document.createElement('p');text.textContent='Adicione um link acima e clique em Fazer download para começar sua próxima seleção.';empty.append(symbol,title,text);container.append(empty);return;}
   for(const [index,item] of items.entries()){const node=$('item-template').content.cloneNode(true),row=node.querySelector('.track');row.dataset.id=item.id;node.querySelector('h3').textContent=item.track?.title || (item.input?.includes('/playlist/')?'Playlist do Spotify':item.input?.includes('/album/')?'Álbum do Spotify':'Faixa do Spotify');node.querySelector('.artist').textContent=item.track?.artist || item.input;
-    node.querySelector('.track-number').textContent=listSort?page.start+index:item.sequence;
+    node.querySelector('.track-number').textContent=page.start+index;
     const play=node.querySelector('.track-toggle'),playable=item.status==='completed' && !!item.file;row.classList.toggle('can-play',playable);play.hidden=!playable;play.onclick=event=>{if(event.detail>0){event.currentTarget.blur();row.classList.add('suppress-hover');}togglePlayback(item);};row.onpointerleave=()=>row.classList.remove('suppress-hover');
     const album=node.querySelector('.track-album');album.textContent=item.track?.album || 'Álbum não informado';album.title=album.textContent;
     const duration=node.querySelector('.track-duration'),seconds=item.track?.duration ?? item.audio?.duration;duration.textContent=formatDuration(seconds);if(Number.isFinite(seconds) && seconds>=0)duration.dateTime=`PT${Math.floor(seconds)}S`;
@@ -143,8 +170,8 @@ function render(){
     if(item.track?.cover && item.track.id)artwork(node.querySelector('.artwork'),item.track.title,`/api/cover/track/${item.track.id}`);
     const details=node.querySelector('.details');if(item.audio){badge(details,`${item.audio.format} · ${item.audio.bits} bits / ${item.audio.rate/1000} kHz`);badge(details,`${(item.audio.bytes/1048576).toFixed(1)} MB`);}if(item.count)badge(details,`${item.count} faixas adicionadas`);
     const status=node.querySelector('.status');status.textContent=labels[item.status] || item.status;status.classList.add(item.status);const progress=node.querySelector('.progress');progress.hidden=!['downloading','validating'].includes(item.status);progress.firstElementChild.style.width=`${item.progress || 0}%`;
-    const error=node.querySelector('.error'),errorText=item.error?friendlyError(item.error):'';
-    showMessage(error,errorText,true,()=>dismissedErrors.set(item.id,errorText));if(dismissedErrors.get(item.id)===errorText)error.hidden=true;
+    const error=node.querySelector('.error'),errorText=retryFeedback(item,state.paused) || (item.error?friendlyError(item.error):'');
+    error.textContent=errorText;error.hidden=!errorText;
     const actions=node.querySelector('.actions');if(item.status==='completed'){actions.hidden=true;}else if(['failed','cancelled'].includes(item.status)){const retry=document.createElement('button');retry.type='button';retry.textContent='Tentar novamente';retry.onclick=()=>action('retry',item.id);actions.append(retry);}else if(item.status!=='expanded'){const cancel=document.createElement('button');cancel.type='button';cancel.className='cancel';cancel.textContent='Cancelar';cancel.onclick=()=>action('cancel',item.id);actions.append(cancel);}container.append(node);
   }
   updatePlayback();
@@ -160,7 +187,7 @@ async function startPreparedDownloads() {
   }
 }
 $('add-form').onsubmit=async event=>{event.preventDefault();if($("add-button").disabled)return;const links=Array.from($('link-inputs').querySelectorAll('input'),input=>input.value.trim()).filter(Boolean);composerBusy(true);let added=false;try{state=await api('add',{input:links.join('\n')});currentPage=1;$('link-inputs').querySelectorAll('.link-row').forEach(stopPreview);$('link-inputs').replaceChildren(newLinkRow());numberLinkRows();added=true;message('Músicas preparadas. O download será feito na pasta escolhida.');render();await startPreparedDownloads();if(state.paused){state=await api('action',{action:'resume'});render();}}catch(error){message(friendlyError(error),true);}finally{composerBusy(false);if(added)$('link-inputs').querySelector('input').focus();}};
-$('pause-button').onclick=()=>action(state.paused?'resume':'pause');
+$('pause-button').onclick=async()=>{const control=downloadControl(state);if(control.disabled)return;$('pause-button').disabled=true;await action(control.action);};
 $('clear-button').onclick=async()=>{$('clear-button').disabled=true;await action('clear');};
 $('undo-clear').onclick=()=>action('undo-clear');
 $('dismiss-clear-notice').onclick=()=>{showClearNotice=false;render();};

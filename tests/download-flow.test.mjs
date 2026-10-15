@@ -5,12 +5,33 @@ import path from 'node:path';
 import os from 'node:os';
 import {Queue} from '../lib/queue.mjs';
 import {createApp} from '../server.mjs';
-import {spotifyLinkKey} from '../public/list.js';
+import {spotifyLinkKey,sortDownloads,listPage} from '../public/list.js';
 
 const id1='7iL6o9tox1zgHpKUfh9vuC',id2='0000000000000000000002';
 const url=id=>`https://open.spotify.com/track/${id}`;
 const track=id=>({id,title:`Faixa ${id}`,artist:'Artista',cover:'https://example.org/capa.png',spotifyUrl:url(id)});
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};};
+
+test('lote com mais de uma página baixa na ordem exibida, começando no topo da primeira página',async()=>{
+  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ixpotifai-visible-order-'));
+  const release=deferred(),finished=deferred(),started=[];let queue;
+  try {
+    const tracks=Array.from({length:12},(_,i)=>track(String(i+1).padStart(22,'0')));
+    queue=await new Queue(dir,{metadataReader:async()=>tracks,processor:async item=>{
+      started.push(item.track.id);item.status='downloading';
+      if(started.length===1)await release.promise;
+      item.status='completed';if(started.length===tracks.length)finished.resolve();
+    }}).init();
+    const ready=await queue.prepare(`https://open.spotify.com/album/${id2}`);
+    await queue.startBatch(ready.readyBatches[0]);
+    const visible=sortDownloads(queue.view().items,null);
+    assert.equal(listPage(visible,1).items[0].status,'downloading');
+    assert.equal(started[0],tracks[0].id);
+    assert.deepEqual(listPage(visible,2).items.map(item=>item.track.id),tracks.slice(10).map(item=>item.id));
+    release.resolve();await finished.promise;
+    assert.deepEqual(started,visible.map(item=>item.track.id));
+  }finally{release.resolve();await queue?.close();await fs.rm(dir,{recursive:true,force:true});}
+});
 
 test('todos os metadados do lote ficam prontos antes de iniciar qualquer transferência',async()=>{
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ixpotifai-prepare-'));

@@ -29,7 +29,7 @@ test('ordena metadados em português, duração e status visível; ausentes fica
   assert.deepEqual(order('duration'),[2,3,4,1,5]);assert.deepEqual(order('duration','desc'),[4,1,3,2,5]);
   assert.deepEqual(order('status'),[3,5,2,4,1]);assert.deepEqual(order('status','desc'),[1,4,2,5,3]);
   assert.deepEqual(order('sequence'),[1,2,3,4,5]);assert.deepEqual(order('sequence','desc'),[5,4,3,2,1]);
-  assert.deepEqual(sortDownloads(items,null).map(item=>item.sequence),[5,4,3,2,1]);assert.deepEqual(items.map(item=>item.sequence),[1,2,3,4,5]);
+  assert.deepEqual(sortDownloads(items,null).map(item=>item.sequence),[1,2,3,4,5]);assert.deepEqual(items.map(item=>item.sequence),[1,2,3,4,5]);
 });
 
 test('ordena a lista inteira antes de paginar, incluindo novas músicas sob ordenação ativa',()=>{

@@ -2,6 +2,8 @@
 
 Aplicativo local gratuito para obter arquivos FLAC a partir de músicas escolhidas no Spotify. Executa no seu próprio computador, com uma interface aberta no navegador. Primeira versão funcional: 14/10/2026.
 
+Versão **0.1.1**: novas tentativas em lote, espera com contagem regressiva quando a fonte limita pedidos, numeração e ordem da lista corrigidas, e saída contendo apenas o áudio.
+
 ## Baixar o projeto
 
 1. [Baixe o ixpotifai em ZIP](https://github.com/gpradotech/ixpotifai/archive/refs/heads/main.zip), ou abra [o repositório](https://github.com/gpradotech/ixpotifai) e escolha **Code → Download ZIP**.
@@ -50,6 +52,18 @@ npm start
 
 A instalação baixa o FFmpeg para o sistema do computador. Se transferir o projeto entre Windows e macOS, copie o código e instale novamente as dependências; não copie a pasta `node_modules`. O Windows foi testado; a execução em macOS ainda precisa de validação em um Mac.
 
+## Atualizar uma instalação existente
+
+Esta versão não possui atualizador automático. Para atualizar pelo ZIP:
+
+1. Encerre o aplicativo com **Ctrl+C** no terminal.
+2. Baixe o [ZIP atualizado](https://github.com/gpradotech/ixpotifai/archive/refs/heads/main.zip) e extraia em uma pasta temporária.
+3. Copie o conteúdo da pasta extraída para a pasta da instalação existente, aceitando substituir os arquivos do aplicativo. Não copie apenas a pasta externa criada pelo ZIP.
+4. Preserve as pastas `.ixpotifai` (lista e configurações), `downloads` (áudios) e `node_modules` (dependências). Elas não fazem parte do ZIP e não devem ser apagadas. Áudios salvos em outro destino permanecem onde estão.
+5. Abra novamente pelo launcher e atualize o navegador com **Ctrl+F5**.
+
+Na atualização de 0.1.0 para 0.1.1, as dependências não mudaram; não é necessário reinstalar o Node.js nem executar a instalação novamente. Extrair em outra pasta e abrir essa nova cópia sem transferir o histórico cria uma instalação separada. Atualizar apenas a página do navegador não atualiza o servidor que já está em execução.
+
 ## Primeiro download
 
 1. No Spotify, copie o link de uma faixa, álbum ou playlist pública.
@@ -57,7 +71,7 @@ A instalação baixa o FFmpeg para o sistema do computador. Se transferir o proj
 3. Você pode preencher até **cinco links por envio**. Não há cota diária nem limite total de músicas imposto pelo aplicativo.
 4. Se desejar, clique na pasta de saída no rodapé, navegue até outra pasta e confirme em **Usar esta pasta**. O destino inicial é `downloads`, dentro da pasta do projeto.
 5. Clique em **Fazer download**. Os metadados das adições aparecem primeiro; depois, os downloads são executados um por vez. Adicionar novas músicas retoma automaticamente os downloads pausados.
-6. Aguarde **Concluído**. O FLAC estará na pasta escolhida, com nome `Artistas - Título.flac`, acompanhado de um relatório técnico `.flac.json`.
+6. Aguarde **Concluído**. Apenas o áudio estará na pasta escolhida, com nome `Artistas - Título.flac`. Os dados técnicos da validação ficam no histórico interno do aplicativo, em `.ixpotifai/state.json`.
 
 **Pausar downloads** interrompe a transferência em andamento e preserva a fila para retomar. **Limpar lista** remove os itens da interface, preserva os arquivos e oferece a opção de desfazer. Ao reiniciar o aplicativo, a fila e a pasta escolhida são recuperadas; use **Retomar downloads** para continuar pedidos pendentes.
 
@@ -86,17 +100,21 @@ O rodapé mostra o caminho completo da **pasta de saída**, inicialmente `downlo
 
 O processo precisa ter permissão de acesso à pasta escolhida. O launcher `Iniciar ixpotifai.cmd`, aberto normalmente pelo usuário, executa o aplicativo com as permissões da própria conta do Windows. O seletor navega pelas pastas dentro da interface do aplicativo; não abre o Windows Explorer ou o Finder.
 
-Novos downloads usam o nome `Artistas - Título.flac`, sem o identificador Spotify no nome. O identificador permanece no relatório técnico `.flac.json`. Arquivos de mesmo nome não são sobrescritos. Os arquivos baixados anteriormente mantêm seus nomes. As mensagens de status e erro possuem um botão Phosphor X para fechar; fechar a mensagem não cancela o download nem remove a faixa da lista.
+Novos downloads usam o nome `Artistas - Título.flac`, sem o identificador Spotify no nome e sem gerar JSON na pasta de saída. O identificador e a validação permanecem no histórico interno. Arquivos de mesmo nome não são sobrescritos. Os arquivos baixados anteriormente, inclusive relatórios antigos, são preservados. As mensagens gerais e dos campos possuem um botão Phosphor X para fechar. Os alertas dentro das faixas exibem apenas o texto, sem botão X; o botão de remover a faixa permanece independente.
 
-A seção Downloads exibe dez músicas por página, com navegação para as demais. Limpar lista preserva os arquivos baixados e permite desfazer a última limpeza. O feedback de desfazer aparece somente logo após a limpeza e desaparece ao adicionar uma música ou recarregar a página. Pausar/retomar downloads fica desabilitado quando não há trabalho pendente. Com apenas uma música na lista, o rótulo usa download no singular. Ao adicionar novas músicas, os downloads pausados são retomados automaticamente depois que os metadados das adições são renderizados. O botão de limpar aparece somente nos campos preenchidos. Para encerrar, pressione Ctrl+C no terminal do aplicativo.
+A seção Downloads exibe dez músicas por página, com navegação para as demais. Limpar lista preserva os arquivos baixados e permite desfazer a última limpeza. O feedback de desfazer aparece somente logo após a limpeza e desaparece ao adicionar uma música ou recarregar a página. O controle global mostra **Pausar downloads** enquanto a fila está em execução e **Retomar downloads** quando está pausada; a retomada pelo botão também recoloca todas as faixas com erro na fila. Quando restam apenas falhas, mostra **Tentar novamente** e tenta todas elas com um clique, inclusive em outras páginas. Faixas concluídas e canceladas são preservadas. A solicitação é confirmada junto à lista e a página da primeira faixa envolvida é exibida; a confirmação não significa que o download já terminou. Sem trabalho pendente nem falhas, o controle fica desabilitado. Com apenas uma música na lista, os rótulos Pausar/Retomar usam download no singular. Ao adicionar novas músicas, os downloads pausados são retomados automaticamente depois que os metadados das adições são renderizados. O botão de limpar aparece somente nos campos preenchidos. Para encerrar, pressione Ctrl+C no terminal do aplicativo.
 
-O cabeçalho da lista permite ordenar por número de adição, título/artista, álbum, duração e status. Número e duração alternam crescente, decrescente e desligado; álbum e status alternam A–Z, Z–A e desligado. Título possui cinco estados: título A–Z, título Z–A, artista A–Z, artista Z–A e desligado. A ordenação vale para a lista inteira antes da paginação e retorna à primeira página a cada troca. Com uma ordenação ativa, o número exibido acompanha a posição da música nessa ordenação: 1–10 na primeira página, 11–20 na segunda, e assim por diante. Ao desativar, as adições mais recentes voltam ao topo com seus números de adição. Dados ausentes ficam no final nas duas direções.
+Quando um serviço responde **HTTP 429**, ele está limitando pedidos. O aplicativo interrompe o avanço da fila, mostra **Aguardando a fonte** com contagem regressiva e respeita o cabeçalho `Retry-After`. A espera é de pelo menos 60 segundos, aumentando para 120 e 240 segundos se o limite persistir; um prazo maior informado pelo serviço prevalece. Há até três novas tentativas automáticas para essa condição. Se todas falharem, a faixa volta a Precisa de atenção e a fila é pausada, sem disparar pedidos para as próximas músicas. Outros erros não entram nesse ciclo automático. Pausar, cancelar, remover ou encerrar interrompe a espera; retomada e reinício preservam o prazo pendente. Isso reduz pedidos repetidos, mas não garante disponibilidade da fonte.
+
+Alterações no servidor exigem encerrar o aplicativo com **Ctrl+C**, reabrir pelo launcher e atualizar a página. Atualizar apenas o navegador carrega o JavaScript novo, mas mantém o servidor antigo em memória. A interface detecta essa incompatibilidade nas novas tentativas e orienta a reiniciar, em vez de enviar um comando não suportado. Mensagens de ações da lista aparecem na própria seção Downloads, separadas dos avisos da adição de links.
+
+O cabeçalho da lista permite ordenar por ordem de adição, título/artista, álbum, duração e status. Número e duração alternam crescente, decrescente e desligado; álbum e status alternam A–Z, Z–A e desligado. Título possui cinco estados: título A–Z, título Z–A, artista A–Z, artista Z–A e desligado. A ordenação vale para a lista inteira antes da paginação e retorna à primeira página a cada troca. O número exibido sempre acompanha a posição da música na lista atual: 1–10 na primeira página, 11–20 na segunda, e assim por diante, com ou sem ordenação ativa. Exclusões e limpeza não deixam lacunas nem acumulam a contagem de listas anteriores. Ao desativar a ordenação, a lista volta à ordem de adição, da primeira para a última, acompanhando a execução dos downloads. Dados ausentes ficam no final nas duas direções.
 
 BPM e tom não são fornecidos pelos metadados públicos usados pelo conector atual. O Spotify restringiu Audio Features para novas aplicações e aplicações em modo de desenvolvimento afetadas pela [mudança de acesso de novembro de 2024](https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api). Essas colunas não são exibidas enquanto não houver uma importação disponível; nenhum valor é estimado ou preenchido artificialmente.
 
 As linhas de Downloads mostram número, capa, título, autores, álbum e duração. A numeração continua entre páginas. O contador ao lado do título aparece quando há itens; o estado vazio não tem texto auxiliar nesse cabeçalho. O hover realça suavemente a linha e revela o botão X para removê-la da lista, preservando o arquivo. Remover uma transferência ativa interrompe essa faixa.
 
-Faixas concluídas com arquivo FLAC disponível podem ser reproduzidas pelo navegador, diretamente do arquivo salvo, sem conversão. A ordem de adição continua salva após reiniciar o aplicativo; quando não há ordenação ativa, a lista exibe esses números do maior para o menor. No hover, o número dá lugar a Play ou Pause na variante Fill; durante a reprodução, fora do hover, aparece um indicador animado. Após um clique de mouse em Play ou Pause, o realce é encerrado; ele volta quando o ponteiro sai e entra novamente na faixa. Uma faixa toca por vez. Remover a faixa em reprodução ou limpar a lista interrompe o player. Há controles equivalentes para foco pelo teclado e telas sem hover. O player exige sessão local e transmite somente os arquivos associados aos itens concluídos da fila; não aceita um caminho arbitrário na URL.
+Faixas concluídas com arquivo FLAC disponível podem ser reproduzidas pelo navegador, diretamente do arquivo salvo, sem conversão. A ordem de adição continua salva após reiniciar o aplicativo; quando não há ordenação ativa, as músicas aparecem da primeira adicionada para a última, numeradas pela posição atual. No hover, o número dá lugar a Play ou Pause na variante Fill; durante a reprodução, fora do hover, aparece um indicador animado. Após um clique de mouse em Play ou Pause, o realce é encerrado; ele volta quando o ponteiro sai e entra novamente na faixa. Uma faixa toca por vez. Remover a faixa em reprodução ou limpar a lista interrompe o player. Há controles equivalentes para foco pelo teclado e telas sem hover. O player exige sessão local e transmite somente os arquivos associados aos itens concluídos da fila; não aceita um caminho arbitrário na URL.
 
 ## Implementado
 
@@ -113,7 +131,9 @@ Faixas concluídas com arquivo FLAC disponível podem ser reproduzidas pelo nave
 
 A faixa fornecida pelo usuário, **In Da Club — 50 Cent**, foi baixada em FLAC estéreo, **16 bits / 44.100 Hz**, **193,466667 segundos**, **20.968.971 bytes**. O ISRC correlacionado é `USIR10300033`. A decodificação produziu 8.531.880 amostras por canal, e seu MD5 coincide com o STREAMINFO do arquivo. Uma segunda execução ponta a ponta verificou o código revisado. Consulte [a evidência executável](docs/VERIFICACAO-LIVE.json).
 
-**Isso comprova a obtenção e a integridade de um arquivo FLAC, não a identidade do master do Spotify nem a ausência de uma etapa com perdas anterior à publicação nessa fonte.** A pendência de equivalência do master fica registrada nos relatórios técnicos de cada arquivo. A maior resolução é comparada dentro dos resultados compatíveis desta fonte; a maior qualidade existente em todos os serviços não foi comprovada. A exigência completa do produto continua pendente, e este protótipo não é uma declaração de sucesso de todos os requisitos.
+**Isso comprova a obtenção e a integridade de um arquivo FLAC, não a identidade do master do Spotify nem a ausência de uma etapa com perdas anterior à publicação nessa fonte.** A pendência de equivalência do master fica registrada no histórico interno de cada download. A maior resolução é comparada dentro dos resultados compatíveis desta fonte; a maior qualidade existente em todos os serviços não foi comprovada. A exigência completa do produto continua pendente, e este protótipo não é uma declaração de sucesso de todos os requisitos.
+
+O arquivo enviado pelo distribuidor, o áudio de reprodução do Spotify e o arquivo entregue pela fonte externa são coisas distintas. O Spotify [aceita WAV e informa convertê-lo para FLAC sem perdas antes da reprodução](https://support.spotify.com/us/artists/article/audio-file-formats/). O ixpotifai preserva o FLAC recebido da fonte externa; não recupera nem identifica o formato do upload original do distribuidor. Gerar WAV a partir desse FLAC não recuperaria o arquivo original. Consulte a [investigação de Imprevisto e os limites dessa verificação](docs/FORMATOS-IMPREVISTO.md).
 
 O Windows foi executado e testado. O código e o launcher atendem às APIs do macOS, mas não houve execução num Mac nesta sessão. Não há instalador nativo assinado nesta versão. O estado “Baixando” representa a transferência real para a pasta escolhida no computador que executa o aplicativo. O downloader produz FLAC; o validador também aceita WAV PCM. Exportar WAV não está implementado.
 
@@ -125,7 +145,7 @@ Em 14/10/2026, **Mente Barulhenta — Mc IG, Mc Lele JP, DJ Oreia e DJ Noiskita*
 
 O servidor escuta somente em `127.0.0.1`, sem telemetria ou conta no aplicativo. Alterações da fila exigem uma sessão local; origem externa e Host inesperado são recusados. Fontes precisam usar HTTPS público com TLS verificado; DNS validado é fixado à conexão e endereços privados são rejeitados, inclusive em redirecionamentos.
 
-Pedidos de metadados e arquivos contatam Spotify, Songlink, Deezer e a fonte de áudio. Esses serviços podem observar o IP e as requisições. Não há promessa de anonimato ou imunidade jurídica. Nenhum cookie de conta Spotify ou credencial pessoal foi solicitado ou utilizado. URLs assinadas não são gravadas nos relatórios. `.ixpotifai/` guarda o histórico local da fila, portanto esse diretório contém as escolhas musicais do usuário.
+Pedidos de metadados e arquivos contatam Spotify, Songlink, Deezer e a fonte de áudio. Esses serviços podem observar o IP e as requisições. Não há promessa de anonimato ou imunidade jurídica. Nenhum cookie de conta Spotify ou credencial pessoal foi solicitado ou utilizado. URLs assinadas não são gravadas nos relatórios internos. `.ixpotifai/` guarda o histórico local da fila e as validações, portanto esse diretório contém as escolhas musicais do usuário.
 
 ## Desenvolvimento e configuração
 

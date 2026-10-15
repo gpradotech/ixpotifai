@@ -1,0 +1,31 @@
+{
+  "testedAt": "2026-10-15T16:45:42.051Z",
+  "title": "Imprevisto",
+  "isrc": "BXYGQ2200002",
+  "source": "tracks.monochrome.st",
+  "sourceId": "165832196132978688",
+  "audio": {
+    "format": "FLAC",
+    "rate": 48000,
+    "channels": 2,
+    "bits": 24,
+    "duration": 139.703125,
+    "samples": 6705750,
+    "streamMD5": "4198ad307690de126b109b91361c123a",
+    "decodedSamples": 6705750,
+    "pcmMD5": "4198ad307690de126b109b91361c123a",
+    "sha256": "f7a00ef17d02233845ef819294d31a3c8aa732ed877ea58a1cce9e7ba0fb0bae",
+    "bytes": 26092814,
+    "validation": "Arquivo sem perdas decodificado integralmente"
+  },
+  "identity": {
+    "recording": "ISRC e metadados correlacionados",
+    "master": "Não comprovado"
+  },
+  "transport": "FLAC preservado da fonte",
+  "outputFiles": [
+    "Yago Oproprio, Rô Rosa, Skeeter Beats - Imprevisto.flac"
+  ],
+  "internalReportVerified": true,
+  "verificationRoot": ".ixpotifai\\format-verification-1792082702546"
+}

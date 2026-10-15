@@ -1,7 +1,24 @@
 export const MAX_LINKS=5;
 export const PAGE_SIZE=10;
-export const STATUS_LABELS={prepared:'Pronta para baixar',queued:'Na fila',reading:'Preparando download',matching:'Preparando download',downloading:'Baixando',validating:'Validando áudio',completed:'Concluído',failed:'Precisa de atenção',cancelled:'Cancelado',expanded:'Lista adicionada'};
+export const STATUS_LABELS={prepared:'Pronta para baixar',queued:'Na fila',waiting:'Aguardando a fonte',reading:'Preparando download',matching:'Preparando download',downloading:'Baixando',validating:'Validando áudio',completed:'Concluído',failed:'Precisa de atenção',cancelled:'Cancelado',expanded:'Lista adicionada'};
+export function retryFeedback(item,paused,now=Date.now()) {
+  if(item.status==='waiting') {
+    const seconds=Math.max(0,Math.ceil(((item.retryAt || now)-now)/1000));
+    const attempt=item.rateLimitAttempts?` Tentativa automática ${item.rateLimitAttempts} de 3.`:'';
+    return `A fonte limitou os pedidos. ${paused?'Downloads pausados.':seconds?`Nova tentativa em ${seconds}s.`:'Preparando nova tentativa…'}${attempt}`;
+  }
+  if(item.status==='failed' && item.rateLimitExhausted)return 'A fonte continua limitando os pedidos após 3 novas tentativas. A fila foi pausada. Tente novamente mais tarde.';
+  return '';
+}
 export const SORT_LABELS={sequence:'Número',title:'Título',artist:'Artista',album:'Álbum',duration:'Duração',status:'Status'};
+export function downloadControl({items,paused,preparing}) {
+  const pending=items.some(item=>['prepared','queued','waiting','reading','matching','downloading','validating'].includes(item.status));
+  const failed=items.some(item=>item.status==='failed');
+  const noun=items.length===1?'download':'downloads';
+  if(pending)return {label:`${paused?'Retomar':'Pausar'} ${noun}`,action:paused?(failed?'retry-failed':'resume'):'pause',disabled:!!preparing};
+  if(failed)return {label:'Tentar novamente',action:'retry-failed',disabled:!!preparing};
+  return {label:`${paused?'Retomar':'Pausar'} ${noun}`,action:'resume',disabled:true};
+}
 const alphabet=new Intl.Collator('pt-BR',{sensitivity:'base',numeric:true});
 export function nextListSort(current,column){
   const cycle=column==='title'?['title','title','artist','artist']:[column,column];
@@ -16,7 +33,7 @@ function sortValue(item,key){
 }
 export function sortDownloads(items,sort){
   const order=(a,b)=>(b.sequence || 0)-(a.sequence || 0);
-  if(!sort)return items.slice().sort(order);
+  if(!sort)return items.slice().sort((a,b)=>(a.sequence || 0)-(b.sequence || 0));
   const numeric=['sequence','duration'].includes(sort.key),direction=sort.direction==='asc'?1:-1;
   return items.slice().sort((a,b)=>{
     const av=sortValue(a,sort.key),bv=sortValue(b,sort.key);
