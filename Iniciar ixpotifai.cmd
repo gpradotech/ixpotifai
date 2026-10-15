@@ -12,5 +12,5 @@ if not exist node_modules\ffmpeg-static\ffmpeg.exe (
   if errorlevel 1 (pause & exit /b 1)
 )
 set IXPOTIFAI_OPEN=1
-node --use-system-ca server.mjs
+node --use-system-ca scripts/run.mjs
 pause

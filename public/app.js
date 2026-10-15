@@ -9,6 +9,7 @@ let currentPage=1;
 let listSort=null;
 let composerSubmitting=false;
 let queueActionPending=false,restartWarning=false;
+let isUpdateRestarting=()=>false;
 const previewRequests=new WeakMap();
 const uniqueValues=new WeakMap(),startingBatches=new Set();
 const player=$('track-player');
@@ -217,5 +218,6 @@ $('folder-select').onclick=async()=>{
   try{state=await api('folder',{directory:folderState.directory});render();$('folder-dialog').close();message('Pasta de saída atualizada. Os próximos downloads serão salvos nela.');}
   catch(error){folderMessage(friendlyError(error),true);}finally{choosingFolder=false;folderControls(false);render();}
 };
-async function refresh(){try{state=await api('state');render();await startPreparedDownloads();}catch{message('O aplicativo local foi desconectado. Reinicie o ixpotifai para continuar.',true);}}
+async function refresh(){try{state=await api('state');render();await startPreparedDownloads();}catch{if(!isUpdateRestarting())message('O aplicativo local foi desconectado. Reinicie o ixpotifai para continuar.',true);}}
 numberLinkRows();refresh();setInterval(refresh,1500);
+import('./updates.js').then(module=>{isUpdateRestarting=module.isUpdateRestarting;module.initUpdates();}).catch(()=>{queueMessage('O aplicativo foi atualizado. Feche o terminal do ixpotifai, abra novamente pelo launcher e atualize esta página para carregar os novos recursos.',true);});

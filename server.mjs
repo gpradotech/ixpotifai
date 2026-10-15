@@ -9,9 +9,10 @@ import {safeError} from './lib/net.mjs';
 import {previewStore} from './lib/preview.mjs';
 import {browseFolders} from './lib/folder.mjs';
 import {streamAudio} from './lib/playback.mjs';
+import {UpdateManager} from './lib/updates.mjs';
 
-export async function createApp({root=path.dirname(fileURLToPath(import.meta.url)),queue,previewOptions}={}) {
-  const token=randomBytes(32).toString('hex');let origin,previews,choosingFolder=false;
+export async function createApp({root=path.dirname(fileURLToPath(import.meta.url)),queue,previewOptions,updateOptions}={}) {
+  const token=randomBytes(32).toString('hex');let origin,previews,updates,choosingFolder=false;
   const server=http.createServer(async(req,res)=>{
     const send=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
     res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');
@@ -26,6 +27,11 @@ export async function createApp({root=path.dirname(fileURLToPath(import.meta.url
         if(supplied.length!==token.length || !timingSafeEqual(Buffer.from(supplied),Buffer.from(token)))return send(403,{error:'Sessão inválida. Reabra o aplicativo.'});
         let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>1024*1024)return send(413,{error:'Envie este lote em partes menores.'});}
         const data=JSON.parse(body || '{}');
+        if(url.pathname==='/api/updates/check')return send(200,await updates.check({manual:true}));
+        if(url.pathname==='/api/updates/dismiss')return send(200,await updates.dismiss(data.version));
+        if(url.pathname==='/api/updates/install')return send(200,await updates.start(data.version));
+        if(url.pathname==='/api/updates/cancel')return send(200,await updates.cancel());
+        if(updates?.phase==='restarting')return send(409,{error:'Estamos instalando a atualização. Aguarde o aplicativo reiniciar.'});
         if(url.pathname==='/api/preview')return send(200,await previews.get(String(data.input || '')));
         if(url.pathname==='/api/add')return send(200,await queue.prepare(String(data.input || '')));
         if(url.pathname==='/api/start-batch')return send(200,await queue.startBatch(String(data.batchId || '')));
@@ -48,9 +54,10 @@ export async function createApp({root=path.dirname(fileURLToPath(import.meta.url
       }
       if(req.method!=='GET')return send(405,{error:'Método não permitido.'});
       if(url.pathname==='/api/state')return send(200,queue.view());
+      if(url.pathname==='/api/updates')return send(200,updates.view());
       const cover=url.pathname.match(/^\/api\/cover\/(track|album|playlist)\/([a-zA-Z0-9]{22})$/);
       if(cover){const image=await previews.cover(cover[1],cover[2]);res.writeHead(200,{'Content-Type':image.type,'Content-Length':image.bytes.length,'Cache-Control':'private, max-age=600'});res.end(image.bytes);return;}
-      const names={'/':'index.html','/app.js':'app.js','/errors.js':'errors.js','/list.js':'list.js','/style.css':'style.css','/spotify-logo.png':'spotify-logo.png'};
+      const names={'/':'index.html','/app.js':'app.js','/updates.js':'updates.js','/errors.js':'errors.js','/list.js':'list.js','/style.css':'style.css','/spotify-logo.png':'spotify-logo.png'};
       if(!names[url.pathname])return send(404,{error:'Rota inexistente.'});
       let content=await fs.readFile(path.join(path.dirname(fileURLToPath(import.meta.url)),'public',names[url.pathname]));
       if(url.pathname==='/')content=Buffer.from(content.toString().replace('__SESSION__',token));
@@ -61,7 +68,8 @@ export async function createApp({root=path.dirname(fileURLToPath(import.meta.url
   origin=`http://127.0.0.1:${server.address().port}`;
   try{queue ||= await new Queue(root,{providers:process.env.IXPOTIFAI_PROVIDER?[process.env.IXPOTIFAI_PROVIDER]:undefined,downloadRoot:process.env.IXPOTIFAI_DOWNLOAD_DIR}).init();}catch(error){await new Promise(r=>server.close(r));throw error;}
   previews=previewStore(queue,previewOptions);
-  return {server,queue,url:origin,close:async()=>{await queue.close();await new Promise(r=>server.close(r));}};
+  try{updates=await new UpdateManager(root,queue,updateOptions).init();}catch(error){await queue.close();await new Promise(r=>server.close(r));throw error;}
+  return {server,queue,updates,url:origin,close:async()=>{updates.close();await queue.close();await new Promise(resolve=>{server.close(resolve);const timer=setTimeout(()=>server.closeAllConnections(),2000);timer.unref();server.once('close',()=>clearTimeout(timer));});}};
 }
 if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   const open=url=>{
@@ -70,9 +78,13 @@ if(process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.
     spawn(command,args,{windowsHide:true,stdio:'ignore'}).on('error',()=>{});
   };
   try {
-    const app=await createApp();console.log(`ixpotifai disponível em ${app.url}`);
+    let app,closing=false;
+    const shutdown=async(code=0)=>{if(closing)return;closing=true;const paused=app.queue.paused;await app.close();if(code===75){app.queue.paused=paused;await app.queue.persist();}process.exit(code);};
+    app=await createApp({updateOptions:{onRestart:()=>shutdown(75)}});console.log(`ixpotifai disponível em ${app.url}`);
+    if(process.connected)process.send({type:'ready',version:app.updates.version});
+    process.on('message',message=>{if(message?.type==='shutdown')shutdown();if(message?.type==='update-confirmed')app.updates.phase='updated';});
     if(process.env.IXPOTIFAI_OPEN==='1')open(app.url);
-    for(const event of ['SIGINT','SIGTERM'])process.once(event,async()=>{await app.close();process.exit(0);});
+    for(const event of ['SIGINT','SIGTERM'])process.once(event,()=>shutdown());
   }catch(error){
     if(error.code==='EADDRINUSE'){const url=`http://127.0.0.1:${Number(process.env.IXPOTIFAI_PORT || 4317)}`;console.log(`Já existe um aplicativo usando ${url}.`);if(process.env.IXPOTIFAI_OPEN==='1')open(url);}
     else{console.error(safeError(error));process.exitCode=1;}

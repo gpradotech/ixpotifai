@@ -8,4 +8,4 @@ if [ ! -x node_modules/ffmpeg-static/ffmpeg ]; then
   NODE_OPTIONS=--use-system-ca npm ci --no-audit --no-fund --cache .ixpotifai/npm-cache || exit 1
 fi
 export IXPOTIFAI_OPEN=1
-exec node --use-system-ca server.mjs
+exec node --use-system-ca scripts/run.mjs

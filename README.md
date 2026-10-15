@@ -2,7 +2,7 @@
 
 Aplicativo local gratuito para obter arquivos FLAC a partir de músicas escolhidas no Spotify. Executa no seu próprio computador, com uma interface aberta no navegador. Primeira versão funcional: 14/10/2026.
 
-Versão **0.1.1**: novas tentativas em lote, espera com contagem regressiva quando a fonte limita pedidos, numeração e ordem da lista corrigidas, e saída contendo apenas o áudio.
+Versão **0.1.2**: verificação automática de novas versões, aviso com opção de adiar, atualização pelo aplicativo e reinício com recuperação em caso de falha. Inclui as correções de downloads e usabilidade da versão 0.1.1.
 
 ## Baixar o projeto
 
@@ -54,7 +54,13 @@ A instalação baixa o FFmpeg para o sistema do computador. Se transferir o proj
 
 ## Atualizar uma instalação existente
 
-Esta versão não possui atualizador automático. Para atualizar pelo ZIP:
+A partir da versão **0.1.2**, o aplicativo verifica novas versões ao abrir e a cada seis horas enquanto estiver em execução. Quando há uma versão estável nova, mostra um aviso com as melhorias e os botões **Atualizar e reiniciar** e **Mais tarde**. Ao adiar, o aviso passa a ser uma indicação discreta, sem reabrir a cada consulta ou recarregamento. O rodapé também permite verificar atualizações manualmente.
+
+Ao confirmar, o aplicativo baixa e confere o pacote oficial. Se houver downloads ativos, oferece **Atualizar ao terminar os downloads**. A preparação pode ser cancelada antes de a instalação começar. A instalação preserva áudios, lista, pasta escolhida e configurações; prepara dependências novas quando necessário e reinicia o servidor. A página reconecta automaticamente. Se a nova versão não iniciar, o launcher restaura a versão anterior e o estado da fila. A instalação deve ser aberta pelo launcher ou por `npm start` para permitir esse reinício. Cópias de desenvolvimento com `.git` são atualizadas pelo Git, preservando o trabalho local.
+
+**Quem usa 0.1.0 ou 0.1.1 precisa fazer a atualização manual abaixo uma última vez para receber o atualizador.** Depois disso, novas versões publicadas como GitHub Releases com pacote de atualização poderão ser instaladas pelo próprio aplicativo.
+
+Para essa primeira atualização, ou para atualizar manualmente:
 
 1. Encerre o aplicativo com **Ctrl+C** no terminal.
 2. Baixe o [ZIP atualizado](https://github.com/gpradotech/ixpotifai/archive/refs/heads/main.zip) e extraia em uma pasta temporária.
@@ -62,7 +68,9 @@ Esta versão não possui atualizador automático. Para atualizar pelo ZIP:
 4. Preserve as pastas `.ixpotifai` (lista e configurações), `downloads` (áudios) e `node_modules` (dependências). Elas não fazem parte do ZIP e não devem ser apagadas. Áudios salvos em outro destino permanecem onde estão.
 5. Abra novamente pelo launcher e atualize o navegador com **Ctrl+F5**.
 
-Na atualização de 0.1.0 para 0.1.1, as dependências não mudaram; não é necessário reinstalar o Node.js nem executar a instalação novamente. Extrair em outra pasta e abrir essa nova cópia sem transferir o histórico cria uma instalação separada. Atualizar apenas a página do navegador não atualiza o servidor que já está em execução.
+Na atualização de 0.1.0/0.1.1 para 0.1.2, as dependências não mudaram; não é necessário reinstalar o Node.js nem executar a instalação novamente. Extrair em outra pasta e abrir essa nova cópia sem transferir o histórico cria uma instalação separada. Atualizar apenas a página do navegador não atualiza o servidor que já está em execução.
+
+A execução e a recuperação do atualizador foram testadas no Windows; a execução em um Mac continua pendente. Consulte o [funcionamento técnico e o processo de publicação](docs/ATUALIZACOES.md).
 
 ## Primeiro download
 
@@ -147,17 +155,20 @@ O servidor escuta somente em `127.0.0.1`, sem telemetria ou conta no aplicativo.
 
 Pedidos de metadados e arquivos contatam Spotify, Songlink, Deezer e a fonte de áudio. Esses serviços podem observar o IP e as requisições. Não há promessa de anonimato ou imunidade jurídica. Nenhum cookie de conta Spotify ou credencial pessoal foi solicitado ou utilizado. URLs assinadas não são gravadas nos relatórios internos. `.ixpotifai/` guarda o histórico local da fila e as validações, portanto esse diretório contém as escolhas musicais do usuário.
 
+O atualizador consulta o GitHub para identificar versões estáveis e, após confirmação, baixar o pacote. Não exige conta nem token do usuário e não envia a lista de músicas. Consultas usam cache e respeitam os intervalos pedidos pelo serviço. Uma falha nessa consulta não impede o uso do aplicativo; a reprodução de áudios locais continua disponível sem internet. Os backups da atualização ficam em `.ixpotifai/updates/`.
+
 ## Desenvolvimento e configuração
 
 ```sh
 npm test
+npm run build:release
 node --use-system-ca scripts/probe.mjs
 node --use-system-ca scripts/verify-live.mjs
 ```
 
 `npm test` usa áudio sintético e testa rejeição de arquivos truncados, falsos FLAC, resolução inferior, gravação divergente, fontes privadas, ações sem sessão, persistência e cancelamento. Os scripts `probe` e `verify-live` fazem requisições reais; `verify-live` baixa a faixa de exemplo numa pasta isolada de verificação e atualiza a evidência.
 
-Variáveis opcionais: `IXPOTIFAI_PORT`, `IXPOTIFAI_DOWNLOAD_DIR` (pasta absoluta), `IXPOTIFAI_PROVIDER` (uma API pública HTTPS compatível com hifi-api), `IXPOTIFAI_FFMPEG` (caminho do executável). Os testes não usam credenciais. A dependência está fixada em `package-lock.json`.
+Variáveis opcionais: `IXPOTIFAI_PORT`, `IXPOTIFAI_DOWNLOAD_DIR` (pasta absoluta), `IXPOTIFAI_PROVIDER` (uma API pública HTTPS compatível com hifi-api), `IXPOTIFAI_FFMPEG` (caminho do executável), `IXPOTIFAI_UPDATE_CHECKS=0` (desativa consultas automáticas de versão). Os testes não usam credenciais. A dependência está fixada em `package-lock.json`.
 
 - [Plano e requisitos](docs/PLANO.md).
 - [Fontes da investigação](docs/FONTES.md).
