@@ -4,6 +4,12 @@ Aplicativo local gratuito para obter arquivos FLAC a partir de músicas escolhid
 
 Versão **0.1.2**: verificação automática de novas versões, aviso com opção de adiar, atualização pelo aplicativo e reinício com recuperação em caso de falha. Inclui as correções de downloads e usabilidade da versão 0.1.1.
 
+## Preview
+
+![Interface do ixpotifai com adição de músicas, contadores e fila de downloads](docs/images/ixpotifai-preview.png)
+
+*Captura da interface com músicas adicionadas à fila de downloads.*
+
 ## Baixar o projeto
 
 1. [Baixe o ixpotifai em ZIP](https://github.com/gpradotech/ixpotifai/archive/refs/heads/main.zip), ou abra [o repositório](https://github.com/gpradotech/ixpotifai) e escolha **Code → Download ZIP**.
